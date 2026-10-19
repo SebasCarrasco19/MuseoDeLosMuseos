@@ -9,10 +9,10 @@ import cl.museos.app.data.*
 import cl.museos.app.ui.MuseoApp
 import cl.museos.app.viewmodel.MuseoViewModel
 import kotlinx.coroutines.runBlocking
-import org.junit.Before
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Before
 import java.io.File
 
 class PantallasTest {
