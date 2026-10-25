@@ -31,13 +31,15 @@ import cl.museos.app.viewmodel.MuseoViewModel
             Text("Proyecto académico · Datos y compras de demostración", style = MaterialTheme.typography.bodySmall)
         } else {
             val registro = s.pantalla == Pantalla.REGISTRO
-            Titulo(if (registro) "Crea tu cuenta" else "Bienvenido de nuevo", "Usa datos ficticios y un correo @example.com para esta demostración.")
-            if (!registro) {
-                Seleccion("Perfil de acceso", s.rolLogin, Reglas.roles, vm::rol)
-                TextButton(vm::demo) { Text("Usar cuenta de demostración") }
-            } else {
+            Titulo(if (registro) "Crea tu cuenta" else "Bienvenido de nuevo", "Ingresa tus datos aqui")
+            if (registro) {
                 Campo(s, vm, "nombre", "Nombre", Icons.Default.Person)
-                SelectorImagen(s.formulario["avatar"] ?: "1", { vm.campo("avatar", it) }, vm::mensaje, avatar = true)
+                SelectorImagen(
+                    s.formulario["avatar"] ?: "1",
+                    { vm.campo("avatar", it) },
+                    vm::mensaje,
+                    avatar = true
+                )
             }
             Campo(s, vm, "correo", "Correo", Icons.Default.Email)
             Campo(s, vm, "clave", "Contraseña", Icons.Default.Lock, secreto = true)
