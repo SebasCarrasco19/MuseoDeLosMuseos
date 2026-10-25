@@ -4,6 +4,9 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -18,33 +21,70 @@ import cl.museos.app.model.*
 import cl.museos.app.native.SelectorImagen
 import cl.museos.app.viewmodel.MuseoViewModel
 
-@Composable fun Acceso(s: EstadoApp, vm: MuseoViewModel) {
+
+@Composable
+fun Acceso(s: EstadoApp, vm: MuseoViewModel) {
+
+    var visible by remember(s.pantalla) { mutableStateOf(false) }
+    LaunchedEffect(s.pantalla) { visible = true }
+
     Pagina {
-        if (s.pantalla == Pantalla.BIENVENIDA) {
-            var visible by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) { visible = true }
-            AnimatedVisibility(visible) { IlustracionMuseo() }
-            Text("CULTURA · MEMORIA · CONEXIÓN", style = MaterialTheme.typography.labelLarge)
-            Titulo("Un mundo de museos", "Explora colecciones, descubre cursos y guarda tus próximos destinos.")
-            Accion("Iniciar sesión", onClick = { vm.ir(Pantalla.LOGIN) })
-            OutlinedButton({ vm.ir(Pantalla.REGISTRO) }, Modifier.fillMaxWidth()) { Text("Crear cuenta de cliente") }
-            Text("Proyecto académico · Datos y compras de demostración", style = MaterialTheme.typography.bodySmall)
-        } else {
-            val registro = s.pantalla == Pantalla.REGISTRO
-            Titulo(if (registro) "Crea tu cuenta" else "Bienvenido de nuevo", "Ingresa tus datos aqui")
-            if (registro) {
-                Campo(s, vm, "nombre", "Nombre", Icons.Default.Person)
-                SelectorImagen(
-                    s.formulario["avatar"] ?: "1",
-                    { vm.campo("avatar", it) },
-                    vm::mensaje,
-                    avatar = true
-                )
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(
+                animationSpec = tween(600)
+            ) + slideInVertically(
+                initialOffsetY = { it / 5 },
+                animationSpec = tween(600)
+            )
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                if (s.pantalla == Pantalla.BIENVENIDA) {
+                    IlustracionMuseo()
+                    Text(
+                        "CULTURA · MEMORIA · CONEXIÓN",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                    Titulo(
+                        "Un mundo de museos",
+                        "Explora colecciones, descubre cursos y guarda tus próximos destinos."
+                    )
+                    Accion("Iniciar sesión") {
+                        vm.ir(Pantalla.LOGIN)
+                    }
+                    OutlinedButton(
+                        onClick = { vm.ir(Pantalla.REGISTRO) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Crear cuenta de cliente")
+                    }
+                    Text(
+                        "Proyecto académico · Datos y compras de demostración",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                } else {
+                    val registro = s.pantalla == Pantalla.REGISTRO
+                    Titulo(
+                        if (registro) "Crea tu cuenta"
+                        else "Bienvenido de nuevo",
+                        if (registro) "Completa tus datos para registrarte."
+                        else "Ingresa tu correo y contraseña."
+                    )
+                    if (registro) { Campo(s, vm, "nombre", "Nombre", Icons.Default.Person)
+                        SelectorImagen(s.formulario["avatar"] ?: "1", { vm.campo("avatar", it) }, vm::mensaje, avatar = true)
+                    }
+                    Campo(s, vm, "correo", "Correo", Icons.Default.Email)
+                    Campo(s, vm, "clave", "Contraseña", Icons.Default.Lock, secreto = true)
+                    if (registro) {
+                        Campo( s, vm, "repetir", "Repite la contraseña", Icons.Default.Lock, secreto = true
+                        )
+                    }
+                    Accion( if (registro) "Registrarme" else "Entrar", !s.ocupado, onClick = vm::enviarFormulario
+                    )
+                }
             }
-            Campo(s, vm, "correo", "Correo", Icons.Default.Email)
-            Campo(s, vm, "clave", "Contraseña", Icons.Default.Lock, secreto = true)
-            if (registro) Campo(s, vm, "repetir", "Repite la contraseña", Icons.Default.Lock, secreto = true)
-            Accion(if (registro) "Registrarme" else "Entrar", !s.ocupado, onClick = vm::enviarFormulario)
         }
     }
 }
