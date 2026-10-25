@@ -7,15 +7,16 @@ import cl.museos.app.model.*
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-
 class MuseoRepository(private val db: AppDatabase) {
     private val dao = db.museoDao()
     private fun fecha() = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+
     private suspend fun exigir(id: Long, vararg roles: String): Usuario {
         val usuario = dao.usuario(id) ?: error("Inicia sesión nuevamente")
         check(usuario.rol in roles) { "Tu perfil no tiene permiso para esta acción" }
         return usuario
     }
+
     suspend fun iniciar() {
         db.withTransaction {
             if (dao.usuarios().isEmpty()) {
@@ -27,6 +28,7 @@ class MuseoRepository(private val db: AppDatabase) {
             }
         }
     }
+
     suspend fun cargar(): EstadoApp {
         val usuario = dao.usuario(dao.sesion() ?: 0)
         val id = usuario?.id ?: 0
@@ -40,32 +42,39 @@ class MuseoRepository(private val db: AppDatabase) {
             }, pedidos = pedidos, lineas = if (pedidos.isEmpty()) emptyList() else dao.lineas(pedidos.map { it.id }),
             avisos = dao.avisos(id), lecturas = dao.lecturas(id))
     }
+
     suspend fun login(correo: String, clave: String, rol: String) {
         val u = dao.correo(correo.trim().lowercase())
         check(u != null && u.rol == rol && Claves.coincide(clave, u.clave)) { "Correo, contraseña o rol incorrectos" }
         dao.guardarSesion(Sesion(usuarioId = u.id))
     }
+
     suspend fun registro(nombre: String, correo: String, clave: String, avatar: String) = db.withTransaction {
         check(dao.correo(correo.trim().lowercase()) == null) { "Ya existe una cuenta con ese correo" }
         val id = dao.insertarUsuario(Usuario(nombre = nombre.trim(), correo = correo.trim().lowercase(), clave = Claves.crear(clave), avatar = avatar))
         dao.guardarSesion(Sesion(usuarioId = id))
     }
+
     suspend fun salir() = dao.guardarSesion(Sesion())
+
     suspend fun perfil(id: Long, nombre: String, correo: String, avatar: String) {
         val u = exigir(id, *Reglas.roles.toTypedArray())
         val existente = dao.correo(correo.trim().lowercase())
         check(existente == null || existente.id == id) { "Ese correo pertenece a otra cuenta" }
         dao.actualizarUsuario(u.copy(nombre = nombre.trim(), correo = correo.trim().lowercase(), avatar = avatar))
     }
+
     suspend fun preferencias(id: Long, oscuro: Boolean, grande: Boolean, avisos: Boolean) {
         val u = exigir(id, *Reglas.roles.toTypedArray())
         dao.actualizarUsuario(u.copy(oscuro = oscuro, textoGrande = grande, avisos = avisos))
     }
+
     suspend fun favorito(id: Long, museo: Long) {
         exigir(id, "Cliente")
         check(dao.museo(museo)?.publicado == true) { "Museo no disponible" }
         if (museo in dao.favoritos(id)) dao.quitarFavorito(id, museo) else dao.favorito(Favorito(id, museo))
     }
+
     suspend fun carrito(id: Long, producto: Long, cantidad: Int) = db.withTransaction {
         exigir(id, "Cliente")
         if (cantidad == 0) { dao.quitarItem(id, producto); return@withTransaction }
@@ -75,6 +84,7 @@ class MuseoRepository(private val db: AppDatabase) {
         check(dao.carrito(id).size < 20 || dao.carrito(id).any { it.productoId == producto }) { "Máximo 20 productos diferentes" }
         dao.guardarItem(ItemCarrito(id, producto, cantidad))
     }
+
     suspend fun comprar(id: Long, destino: String, modalidad: String, esperado: List<FilaCarrito>): Long = db.withTransaction {
         val u = exigir(id, "Cliente")
         val items = dao.carrito(id)
@@ -97,6 +107,7 @@ class MuseoRepository(private val db: AppDatabase) {
         dao.insertarAviso(Aviso(usuarioId = id, titulo = "Solicitud #$pedido recibida", texto = "Pago simulado aprobado. Puedes consultar tu comprobante.", fecha = fecha()))
         pedido
     }
+
     suspend fun solicitarCurso(id: Long, producto: Long): Long = db.withTransaction {
         val u = exigir(id, "Cliente")
         val p = dao.producto(producto) ?: error("Curso no encontrado")
@@ -108,6 +119,7 @@ class MuseoRepository(private val db: AppDatabase) {
         dao.insertarAviso(Aviso(usuarioId = id, titulo = "Consulta de curso recibida", texto = "${p.nombre}. Sin reserva de cupo ni cobro.", fecha = fecha()))
         pedido
     }
+
     suspend fun estado(id: Long, pedido: Long, nuevo: String) {
         exigir(id, "Administrador")
         val p = dao.pedido(pedido) ?: error("Solicitud inexistente")
@@ -117,17 +129,20 @@ class MuseoRepository(private val db: AppDatabase) {
             dao.insertarAviso(Aviso(usuarioId = p.usuarioId, titulo = "Solicitud #${p.id}: $nuevo", texto = "El administrador actualizó tu solicitud.", fecha = fecha()))
         }
     }
+
     suspend fun guardarProducto(id: Long, producto: Producto) {
         exigir(id, "Administrador")
         if (producto.id == 0L) dao.insertarProducto(producto) else {
             check(dao.producto(producto.id) != null); dao.actualizarProducto(producto)
         }
     }
+
     suspend fun activarProducto(id: Long, producto: Long) {
         exigir(id, "Administrador")
         val p = dao.producto(producto) ?: error("Producto inexistente")
         dao.actualizarProducto(p.copy(activo = !p.activo))
     }
+
     suspend fun guardarMuseo(id: Long, museo: Museo) {
         val u = exigir(id, "Administrador", "Investigador")
         val original = if (museo.id == 0L) null else dao.museo(museo.id) ?: error("Museo inexistente")
@@ -135,11 +150,13 @@ class MuseoRepository(private val db: AppDatabase) {
         val limpio = museo.copy(autorId = original?.autorId ?: id, publicado = u.rol == "Administrador")
         if (limpio.id == 0L) dao.insertarMuseo(limpio) else dao.actualizarMuseo(limpio)
     }
+
     suspend fun publicar(id: Long, museo: Long) {
         exigir(id, "Administrador")
         val m = dao.museo(museo) ?: error("Museo inexistente")
         dao.actualizarMuseo(m.copy(publicado = !m.publicado))
     }
+
     suspend fun leerQr(id: Long, texto: String): CodigoQr {
         val u = exigir(id, "Investigador", "Cliente")
         val qr = Reglas.leerQr(texto) ?: error("QR inválido. Debe contener tipo e id en formato JSON")
@@ -153,7 +170,9 @@ class MuseoRepository(private val db: AppDatabase) {
         dao.guardarLectura(Lectura(id, qr.tipo, qr.id, titulo, fecha()))
         return qr
     }
+
     suspend fun leerAviso(id: Long, aviso: Long) = dao.leerAviso(aviso, id)
+
     suspend fun anunciar(id: Long, texto: String) {
         exigir(id, "Administrador")
         check(texto.trim().length in 5..200) { "Escribe un aviso de 5 a 200 caracteres" }

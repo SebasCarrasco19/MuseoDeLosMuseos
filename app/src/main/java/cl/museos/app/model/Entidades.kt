@@ -28,11 +28,12 @@ data class Museo(
     val fecha: String = "15/10/2026", val enlace: String = ""
 )
 
-
 @Entity(tableName = "favoritos", primaryKeys = ["usuarioId", "museoId"])
 data class Favorito(val usuarioId: Long, val museoId: Long)
+
 @Entity(tableName = "carrito", primaryKeys = ["usuarioId", "productoId"])
 data class ItemCarrito(val usuarioId: Long, val productoId: Long, val cantidad: Int)
+
 @Entity(tableName = "lecturas", primaryKeys = ["usuarioId", "tipo", "referencia"])
 data class Lectura(val usuarioId: Long, val tipo: String, val referencia: Long, val titulo: String, val fecha: String)
 
