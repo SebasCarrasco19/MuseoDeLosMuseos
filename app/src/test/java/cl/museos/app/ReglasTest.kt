@@ -23,6 +23,7 @@ class ReglasTest {
     }
     @Test fun qrValidaEstructuraTipoEIdentificador() {
         assertEquals(CodigoQr("museo", 1), Reglas.leerQr("{\"tipo\":\"museo\",\"id\":1}"))
+        assertEquals(CodigoQr("compra", 15), Reglas.leerQr("{\"tipo\":\"compra\",\"id\":15}"))
         for (qr in listOf("https://example.com", "{}", "[]", "{\"tipo\":\"usuario\",\"id\":1}", "{\"tipo\":\"museo\",\"id\":-1}", "{\"tipo\":\"museo\",\"id\":1.5}")) assertNull(Reglas.leerQr(qr))
     }
     @Test fun registroValidaCamposYConfirmacion() {

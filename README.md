@@ -153,3 +153,22 @@ El repositorio incluye `ReglasTest.kt`, `PantallasTest.kt` y `RepositorioTest.kt
 ## Licencia y autoría
 
 Pendiente de definir por los responsables del proyecto. No se presupone una licencia de código abierto.
+
+
+## Mejoras solicitadas: mapas SQLite y QR con detalles
+
+### Mapa
+- La tabla `museos` de SQLite/Room es la fuente de coordenadas. No existen marcadores de museos codificados individualmente.
+- `MuseoDao.observarMuseos()` observa modificaciones con `Flow`. `MuseoRepository` filtra los registros según publicación/permisos y `MuseoViewModel` actualiza Compose.
+- `MapaMuseos` regenera marcadores desde los datos recibidos, descarta coordenadas inválidas y encuadra los puntos presentes.
+- Para probar: iniciar sesión como investigador, crear un museo con coordenadas válidas, observar el mapa; editar coordenadas y regresar al mapa. Los cambios en SQLite se reflejan en la lista observada.
+
+### Lector QR
+- Formato JSON: `{"tipo":"museo","id":1}`, `{"tipo":"producto","id":1}` o `{"tipo":"compra","id":1}`.
+- Después del escaneo se muestra `RESULTADO_QR` con información recuperada desde Room; **no se redirige automáticamente**. La ficha es una acción opcional.
+- Para compras se consulta `pedidos` por ID y se comprueba que `usuarioId` coincida con el usuario conectado, antes de guardar la lectura. La pantalla muestra estado, fecha, productos, subtotal, despacho y total.
+- Para probar sin cámara: lector QR > «Prueba alternativa con texto JSON» y pegar un ejemplo con identificador existente. Una compra solo puede consultarse desde la cuenta que la realizó.
+- Los datos son locales al dispositivo: los QR de compras no permiten consultar pedidos de otro teléfono o de otra base de datos sin un backend compartido.
+
+### Compilación
+Abrir la carpeta en Android Studio y sincronizar Gradle con conexión a Internet para obtener las dependencias. Ejecutar la configuración `app` en un emulador o teléfono. El lector de cámara necesita Google Play Services.

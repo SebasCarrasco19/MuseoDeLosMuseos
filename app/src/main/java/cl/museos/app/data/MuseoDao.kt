@@ -2,6 +2,7 @@ package cl.museos.app.data
 
 import androidx.room.*
 import cl.museos.app.model.*
+import kotlinx.coroutines.flow.Flow
 
 
 @Dao
@@ -16,6 +17,7 @@ interface MuseoDao {
     @Insert suspend fun insertarProducto(producto: Producto): Long
     @Update suspend fun actualizarProducto(producto: Producto)
     @Query("SELECT * FROM museos ORDER BY id") suspend fun museos(): List<Museo>
+    @Query("SELECT * FROM museos ORDER BY id") fun observarMuseos(): Flow<List<Museo>>
     @Query("SELECT * FROM museos WHERE id = :id") suspend fun museo(id: Long): Museo?
     @Insert suspend fun insertarMuseo(museo: Museo): Long
     @Update suspend fun actualizarMuseo(museo: Museo)

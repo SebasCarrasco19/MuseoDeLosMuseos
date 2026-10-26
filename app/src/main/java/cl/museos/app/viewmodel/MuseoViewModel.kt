@@ -14,6 +14,19 @@ class MuseoViewModel(app: Application) : AndroidViewModel(app) {
     private val _estado = MutableStateFlow(EstadoApp())
     val estado = _estado.asStateFlow()
     private val anteriores = mutableListOf<Pantalla>()
+    private var observacionMuseos: Job? = null
+    private var usuarioObservado: Long? = null
+    private fun observarMuseos() {
+        val usuario = _estado.value.usuario
+        if (observacionMuseos != null && usuarioObservado == usuario?.id) return
+        observacionMuseos?.cancel()
+        usuarioObservado = usuario?.id
+        observacionMuseos = viewModelScope.launch {
+            repo.observarMuseos(usuario).collect { museos ->
+                _estado.update { it.copy(museos = museos) }
+            }
+        }
+    }
     init { ejecutar {
         repo.iniciar(); refrescar()
         _estado.update { it.copy(pantalla = if (it.usuario == null) Pantalla.BIENVENIDA else Pantalla.INICIO) }
@@ -34,6 +47,7 @@ class MuseoViewModel(app: Application) : AndroidViewModel(app) {
         _estado.update { it.copy(cargando = false, usuario = datos.usuario, productos = datos.productos,
             museos = datos.museos, favoritos = datos.favoritos, carrito = datos.carrito,
             pedidos = datos.pedidos, lineas = datos.lineas, avisos = datos.avisos, lecturas = datos.lecturas) }
+        observarMuseos()
     }
     private fun id() = _estado.value.usuario?.id ?: error("Inicia sesión")
     fun ir(p: Pantalla, principal: Boolean = false) {
@@ -136,7 +150,14 @@ class MuseoViewModel(app: Application) : AndroidViewModel(app) {
         val resultado = repo.leerQr(id(), texto); refrescar()
         _estado.update { it.copy(qr = resultado, pantalla = Pantalla.RESULTADO_QR) }
     }
-    fun abrirQr() { val qr = _estado.value.qr ?: return; abrir(if (qr.tipo == "museo") Pantalla.MUSEO else Pantalla.PRODUCTO, qr.id) }
+    fun abrirQr() {
+        val qr = _estado.value.qr ?: return
+        when (qr.tipo) {
+            "museo" -> abrir(Pantalla.MUSEO, qr.id)
+            "producto" -> abrir(Pantalla.PRODUCTO, qr.id)
+            "compra" -> comprobante(qr.id)
+        }
+    }
     fun abrirAviso(a: Aviso) = ejecutar { repo.leerAviso(id(), a.id); refrescar(); _estado.update { it.copy(pantalla = Pantalla.valueOf(a.destino)) } }
     fun anunciar(texto: String) = ejecutar { repo.anunciar(id(), texto); refrescar(); mensaje("Aviso local publicado") }
     fun preferencias(oscuro: Boolean, grande: Boolean, avisos: Boolean) = ejecutar { repo.preferencias(id(), oscuro, grande, avisos); refrescar() }

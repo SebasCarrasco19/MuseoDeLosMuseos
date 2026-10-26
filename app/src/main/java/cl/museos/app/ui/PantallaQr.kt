@@ -1,7 +1,6 @@
 package cl.museos.app.ui
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -22,19 +21,56 @@ import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
             val qr = s.qr
             if (qr == null) { Vacio("No hay una lectura válida."); return@Pagina }
             Titulo("Código reconocido", "${qr.tipo.replaceFirstChar { it.uppercase() }} · ID ${qr.id}")
-            var visible by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) { visible = true }
-            AnimatedVisibility(visible) {
-                if (qr.tipo == "museo") IlustracionMuseo(qr.id.toInt())
-                else IlustracionProducto(s.productos.find { it.id == qr.id }?.categoria.orEmpty())
+            when (qr.tipo) {
+                "museo" -> {
+                    val museo = s.museos.find { it.id == qr.id }
+                    if (museo == null) Vacio("No se encontraron los detalles del museo") else {
+                        IlustracionMuseo(qr.id.toInt())
+                        Text(museo.nombre, style = MaterialTheme.typography.titleLarge)
+                        Text("Ubicación: ${museo.ciudad}, ${museo.pais}")
+                        Text("Categoría: ${museo.categoria}")
+                        Text(museo.descripcion)
+                        Text("Coordenadas: ${museo.latitud}, ${museo.longitud}")
+                        Text("Estado: ${if (museo.publicado) "Publicado" else "Borrador"}")
+                        Accion("Ver ficha del museo", onClick = vm::abrirQr)
+                    }
+                }
+                "producto" -> {
+                    val producto = s.productos.find { it.id == qr.id }
+                    if (producto == null) Vacio("Producto no disponible") else {
+                        IlustracionProducto(producto.categoria)
+                        Text(producto.nombre, style = MaterialTheme.typography.titleLarge)
+                        Text(producto.descripcion)
+                        Text("Categoría: ${producto.categoria}")
+                        Text("Precio: ${dinero(producto.precio)} CLP")
+                        Accion("Ver ficha del producto", onClick = vm::abrirQr)
+                    }
+                }
+                "compra" -> {
+                    val pedido = s.pedidos.find { it.id == qr.id && it.usuarioId == s.usuario?.id }
+                    if (pedido == null) Vacio("La compra no está disponible para este usuario") else {
+                        Text("Comprobante #${pedido.id}", style = MaterialTheme.typography.titleLarge)
+                        Text("Cliente: ${pedido.nombreCliente}")
+                        Text("Fecha: ${pedido.fecha}")
+                        Text("Estado: ${pedido.estado}")
+                        Text("Tipo: ${pedido.tipo}")
+                        HorizontalDivider()
+                        s.lineas.filter { it.pedidoId == pedido.id }.forEach { linea ->
+                            Text("${linea.cantidad} × ${linea.nombre} — ${dinero(linea.precio * linea.cantidad)}")
+                        }
+                        HorizontalDivider()
+                        Text("Destino: ${pedido.destino} · ${pedido.modalidad}")
+                        Text("Subtotal: ${dinero(pedido.subtotal)}")
+                        Text("Envío: ${dinero(pedido.envio)}")
+                        Text("Total: ${dinero(pedido.total)} CLP", style = MaterialTheme.typography.titleLarge)
+                        Accion("Ver comprobante", onClick = vm::abrirQr)
+                    }
+                }
             }
-            Text(if (qr.tipo == "museo") s.museos.find { it.id == qr.id }?.nombre.orEmpty() else s.productos.find { it.id == qr.id }?.nombre.orEmpty(), style = MaterialTheme.typography.titleLarge)
-            Text(if (qr.tipo == "museo") s.museos.find { it.id == qr.id }?.descripcion.orEmpty() else s.productos.find { it.id == qr.id }?.descripcion.orEmpty())
-            Text("Lectura guardada en tu historial. Repetir el mismo código actualiza la fecha sin duplicarlo.")
-            Accion("Abrir ficha", onClick = vm::abrirQr)
+            Text("Información consultada desde SQLite. El escaneo no redirige automáticamente.", style = MaterialTheme.typography.bodySmall)
             OutlinedButton({ vm.ir(Pantalla.QR, true) }) { Text("Volver al lector") }
         } else {
-            Titulo("Descubre con QR", "Escanea un código del proyecto para abrir un museo o producto.")
+            Titulo("Descubre con QR", "Escanea un QR de museo, producto o compra para consultar sus detalles.")
             Accion("Escanear QR", !escaneando && !s.ocupado, Icons.Default.QrCodeScanner) {
                 escaneando = true
                 runCatching {

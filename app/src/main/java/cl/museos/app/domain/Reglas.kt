@@ -64,7 +64,7 @@ object Reglas {
             val tipo = objeto.get("tipo").asString
             val idTexto = objeto.get("id").asString
             val id = idTexto.toLongOrNull() ?: 0
-            if (tipo in listOf("producto", "museo") && id > 0) CodigoQr(tipo, id) else null
+            if (tipo in listOf("producto", "museo", "compra") && id > 0) CodigoQr(tipo, id) else null
         }
     } catch (_: Exception) { null }
 }

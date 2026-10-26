@@ -45,14 +45,24 @@ import org.osmdroid.views.overlay.Marker
     }
     LaunchedEffect(museos) {
         mapa.overlays.clear()
-        museos.forEach { museo -> mapa.overlays.add(Marker(mapa).apply {
+        val validos = museos.filter { it.latitud.isFinite() && it.longitud.isFinite() && it.latitud in -90.0..90.0 && it.longitud in -180.0..180.0 }
+        validos.forEach { museo -> mapa.overlays.add(Marker(mapa).apply {
             position = GeoPoint(museo.latitud, museo.longitud); title = museo.nombre
             icon = ContextCompat.getDrawable(context, R.drawable.ic_marcador)
             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
             setOnMarkerClickListener { _, _ -> callback(museo.id); true }
         }) }
-        if (museos.size == 1) { mapa.controller.setCenter(GeoPoint(museos[0].latitud, museos[0].longitud)); mapa.controller.setZoom(5.0) }
-        else { mapa.controller.setZoom(2.8); mapa.controller.setCenter(GeoPoint(-15.0, -60.0)) }
+        when (validos.size) {
+            0 -> { mapa.controller.setZoom(2.8); mapa.controller.setCenter(GeoPoint(-15.0, -60.0)) }
+            1 -> { mapa.controller.setCenter(GeoPoint(validos[0].latitud, validos[0].longitud)); mapa.controller.setZoom(7.0) }
+            else -> {
+                val norte = validos.maxOf { it.latitud }
+                val sur = validos.minOf { it.latitud }
+                val este = validos.maxOf { it.longitud }
+                val oeste = validos.minOf { it.longitud }
+                mapa.post { mapa.zoomToBoundingBox(org.osmdroid.util.BoundingBox(norte, este, sur, oeste), true, 48) }
+            }
+        }
         mapa.invalidate()
     }
     AndroidView(factory = { mapa }, modifier = Modifier.fillMaxWidth().height(280.dp).clip(RoundedCornerShape(16.dp)))

@@ -4,6 +4,8 @@ import androidx.room.withTransaction
 import cl.museos.app.domain.Claves
 import cl.museos.app.domain.Reglas
 import cl.museos.app.model.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -27,6 +29,11 @@ class MuseoRepository(private val db: AppDatabase) {
                 DatosIniciales.museos(investigador).forEach { dao.insertarMuseo(it) }
             }
         }
+    }
+
+    // Room vuelve a emitir los museos cuando SQLite cambia.
+    fun observarMuseos(usuario: Usuario?): Flow<List<Museo>> = dao.observarMuseos().map { lista ->
+        lista.filter { it.publicado || usuario?.rol == "Administrador" || (usuario != null && it.autorId == usuario.id) }
     }
 
     suspend fun cargar(): EstadoApp {
@@ -160,12 +167,21 @@ class MuseoRepository(private val db: AppDatabase) {
     suspend fun leerQr(id: Long, texto: String): CodigoQr {
         val u = exigir(id, "Investigador", "Cliente")
         val qr = Reglas.leerQr(texto) ?: error("QR inválido. Debe contener tipo e id en formato JSON")
-        val titulo = if (qr.tipo == "producto") {
-            val p = dao.producto(qr.id)
-            check(p != null && p.activo) { "El QR corresponde a un producto desconocido o inactivo" }; p.nombre
-        } else {
-            val m = dao.museo(qr.id)
-            check(m != null && (m.publicado || u.rol == "Investigador" && m.autorId == id)) { "Museo desconocido o no publicado" }; m.nombre
+        val titulo = when (qr.tipo) {
+            "producto" -> {
+                val p = dao.producto(qr.id)
+                check(p != null && p.activo) { "El QR corresponde a un producto desconocido o inactivo" }; p.nombre
+            }
+            "museo" -> {
+                val m = dao.museo(qr.id)
+                check(m != null && (m.publicado || u.rol == "Investigador" && m.autorId == id)) { "Museo desconocido o no publicado" }; m.nombre
+            }
+            "compra" -> {
+                val pedido = dao.pedido(qr.id) ?: error("Compra no encontrada")
+                check(pedido.usuarioId == id) { "No tienes permiso para consultar esta compra" }
+                "Compra #${pedido.id}"
+            }
+            else -> error("Tipo de QR no admitido")
         }
         dao.guardarLectura(Lectura(id, qr.tipo, qr.id, titulo, fecha()))
         return qr
